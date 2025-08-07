@@ -5,6 +5,9 @@ on:
     types: [closed]
 
 jobs:
+  # In case we use the /cherry-pick in unmerged PR, wait for user to merge it
+  # look for comments wit cherry-picking slash command
+  # and cherry-pick as we would do normally
   cherry-pick:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest

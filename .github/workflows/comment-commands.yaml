@@ -25,6 +25,7 @@ jobs:
             /milestone'
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+  # /cherry-pick command, only send a message if PR is unmerged, cherry-pick if PR was already merged
   cherry-pick:
     runs-on: ubuntu-latest
     if: |
@@ -66,6 +67,7 @@ jobs:
             });
             return {
               merged: pr.data.merged,
+              state: pr.data.state,
               mergeCommit: pr.data.merge_commit_sha
             };
 
@@ -75,12 +77,12 @@ jobs:
         run: echo "branch=$(echo '${{ github.event.comment.body }}' | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: comment pr unmerged
-        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == false }}
+        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
-            Squashed commits from this PR will be cherry picked into the `${{steps.extract-branch.outputs.branch}}` branch(es) once merged.
+            Commits from this PR will automatically be cherry-picked once this PR gets merged.
 
       - name: Checkout repository
         if: fromJSON(steps.check-merged.outputs.result).merged == true
@@ -91,6 +93,7 @@ jobs:
       - name: Cherry Pick
         if: fromJSON(steps.check-merged.outputs.result).merged == true
         uses: ./.github/actions/cherry-pick
+        continue-on-error: true # Send failure comment to PR
         id: cherry-pick
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -100,14 +103,12 @@ jobs:
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: comment cherry-pick fail
-        if: ${{ steps.cherry-pick.outputs.success == false && steps.cherry-pick.outputs.git-logs != '' }}
+        if: ${{ steps.cherry-pick.outputs.success == false }}
         uses: ben-z/actions-comment-on-issue@1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |            
-            Cherry picking the merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` into `${{steps.extract-branch.outputs.branch}}` failed with:
+            :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
             
-            ```
-            ${{ steps.cherry-pick.outputs.git-logs }}
-            ```
+            Please check workflow logs.
             
