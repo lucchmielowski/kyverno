@@ -99,7 +99,7 @@ jobs:
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: comment cherry-pick fail
-        if: steps.cherry-pick.outputs.success == false
+        if: ${{ steps.cherry-pick.outputs.success == false && steps.cherry-pick.outputs.git-logs != '' }}
         uses: ben-z/actions-comment-on-issue@1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
