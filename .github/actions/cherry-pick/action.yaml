@@ -1,6 +1,5 @@
 name: 'Cherry Pick Action'
 description: 'Creates cherry-pick PRs from a merge commit'
-
 inputs:
   github-token:
     description: 'GitHub token for authentication'
@@ -14,38 +13,24 @@ inputs:
   merge-commit:
     description: 'Merge commit SHA'
     required: true
-
 runs:
   using: 'composite'
   steps:
-    - name: Cache GitHub CLI
-      uses: actions/cache@v4
-      id: cache-gh-cli
-      with:
-        path: /usr/bin/gh
-        key: gh-cli-${{ runner.os }}-${{ hashFiles('/usr/bin/gh') }}
-        restore-keys: |
-          gh-cli-${{ runner.os }}-
-
     - name: Configure Git
       shell: bash
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
     - name: Install GitHub CLI
-      if: steps.cache-gh-cli.outputs.cache-hit != 'true'
       shell: bash
       run: |
         sudo apt update
         sudo apt install gh -y
-
     - name: Authenticate gh
       shell: bash
       run: gh auth setup-git
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-
     - name: Create cherry-pick PRs
       shell: bash
       run: |
