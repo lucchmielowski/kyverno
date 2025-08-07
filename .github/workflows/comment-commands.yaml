@@ -34,6 +34,17 @@ jobs:
       pull-requests: write
       contents: write
     steps:
+      - name: Check for Command
+        id: command
+        uses: xt0rted/slash-command-action@v1
+        with:
+          command: cherry-pick
+          reaction: "true"
+          reaction-type: "eyes"
+          allow-edits: "false"
+          permission-level: write
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check if PR is merged
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         id: check-merged
@@ -53,6 +64,26 @@ jobs:
         if: fromJSON(steps.check-merged.outputs.result).merged == true
         id: extract-branch
         run: echo "branch=$(echo '${{ github.event.comment.body }}' | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: comment pr unmerged
+        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == false }}
+        uses: ben-z/actions-comment-on-issue@1.0.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          message: |
+            Hello, @${{ github.event.issue.user.login }} :robot: :wave:
+            
+            Code from this PR will be cherry picked inside the `${{steps.extract-branch.outputs.branch}}` branch(es) once merged.
+
+      - name: comment pr merged
+        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == true }}
+        uses: ben-z/actions-comment-on-issue@1.0.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          message: |
+            Hello, @${{ github.event.issue.user.login }} :robot: :wave:
+            
+            Cherry picking the merge commit `${{& fromJSON(steps.check-merged.outputs.result).mergeCommit}}` inside `${{steps.extract-branch.outputs.branch}}` right now.
 
       - name: Checkout repository
         if: fromJSON(steps.check-merged.outputs.result).merged == true
