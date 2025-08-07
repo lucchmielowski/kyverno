@@ -45,5 +45,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           source-pr: ${{ github.event.pull_request.number }}
+          source-pr-title: ${{ github.event.pull_request.title }}
           target-branches: ${{ fromJSON(steps.cherry.outputs.result)[0] }}
           merge-commit: ${{ github.event.pull_request.merge_commit_sha }}

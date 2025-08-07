@@ -95,6 +95,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           source-pr: ${{ github.event.issue.number }}
+          source-pr-title: ${{ github.event.issue.title }}
           target-branches: ${{ steps.extract-branch.outputs.branch }}
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 

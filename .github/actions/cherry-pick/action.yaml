@@ -7,6 +7,9 @@ inputs:
   source-pr:
     description: 'Source PR number'
     required: true
+  source-pr-title:
+    description: 'Title of the PR to cherry-pick'
+    required: true
   target-branches:
     description: 'Target branches for cherry-pick (comma-separated)'
     required: true
@@ -59,8 +62,8 @@ runs:
             git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
         
             gh pr create \
-              --title "Cherry-pick #${{ inputs.source-pr }} to ${target_branch}" \
-              --body "Cherry-pick of #${{ inputs.source-pr }} to \`${target_branch}\`." \
+              --title "${{ inputs.source-pr-title }} (Cherry-pick #${{ inputs.source-pr }})" \
+              --body "Cherry-pick #${{ inputs.source-pr }}" \
               --base ${target_branch} \
               --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
           else
