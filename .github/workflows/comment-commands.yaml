@@ -34,6 +34,10 @@ jobs:
       pull-requests: write
       contents: write
     steps:
+      - name: Debug Comment
+        run: |
+          echo "Comment body: ${{ github.event.comment.body }}"
+
       - name: Check for Command
         id: command
         uses: xt0rted/slash-command-action@v1
