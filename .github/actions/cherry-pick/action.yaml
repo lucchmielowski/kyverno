@@ -76,11 +76,11 @@ runs:
         echo "git-logs<<EOF" >> $GITHUB_OUTPUT
         echo "$git_logs" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
 
     - name: Debug Output
       shell: bash
       run: |
         echo "${{ steps.cherry-pick.outputs.success }}"
         echo "${{ steps.cherry-pick.outputs.git-logs }}"
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
