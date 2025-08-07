@@ -103,7 +103,7 @@ jobs:
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: comment cherry-pick fail
-        if: steps.cherry-pick.outputs.success == false
+        if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
