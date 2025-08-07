@@ -71,13 +71,18 @@ runs:
             continue
           fi
         done
-        
-        echo "success=$success" >> $GITHUB_OUTPUT
-        echo "git-logs<<EOF" >> $GITHUB_OUTPUT
-        echo "$git_logs" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        {
+          echo "success=$success"
+          echo "git-logs<<EOF"
+          echo "$git_logs"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Verify outputs
+      shell: bash
+      run: cat $GITHUB_OUTPUT
 
     - name: Debug Output
       shell: bash
