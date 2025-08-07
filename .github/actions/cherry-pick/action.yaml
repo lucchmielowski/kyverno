@@ -71,12 +71,9 @@ runs:
             continue
           fi
         done
-        {
-          echo "success=$success"
-          echo "git-logs<<EOF"
-          echo "$git_logs"
-          echo "EOF"
-        } >> $GITHUB_OUTPUT
+        
+        echo "success=${success}" >> $GITHUB_OUTPUT
+        echo "git-logs=${git_logs}" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ inputs.github-token }}
 
