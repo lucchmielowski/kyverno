@@ -23,7 +23,10 @@ runs:
       id: cache-gh-cli
       with:
         path: /usr/bin/gh
-        key: gh-cli-${{ runner.os }}
+        key: gh-cli-${{ runner.os }}-${{ hashFiles('/usr/bin/gh') }}
+        restore-keys: |
+          gh-cli-${{ runner.os }}-
+
     - name: Configure Git
       shell: bash
       run: |
