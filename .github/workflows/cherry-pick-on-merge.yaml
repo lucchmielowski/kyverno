@@ -21,6 +21,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "Luc Chmielowski"
+          git config --global user.email "luc.chmielowski@nirmata.com"
+
+
       - name: Install GitHub CLI
         run: |
           sudo apt update
