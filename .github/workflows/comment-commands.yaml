@@ -83,7 +83,7 @@ jobs:
           message: |
             Hello, @${{ github.event.issue.user.login }} :robot: :wave:
             
-            Cherry picking the merge commit `${{& fromJSON(steps.check-merged.outputs.result).mergeCommit}}` inside `${{steps.extract-branch.outputs.branch}}` right now.
+            Cherry picking the merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` inside `${{steps.extract-branch.outputs.branch}}` right now.
 
       - name: Checkout repository
         if: fromJSON(steps.check-merged.outputs.result).merged == true
