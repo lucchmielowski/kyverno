@@ -16,6 +16,13 @@ inputs:
     required: true
 
 runs:
+  - name: Cache GitHub CLI
+    uses: actions/cache@v4
+    id: cache-gh-cli
+    with:
+      path: /usr/bin/gh
+      key: gh-cli-${{ runner.os }}
+
   using: 'composite'
   steps:
     - name: Configure Git
@@ -25,6 +32,7 @@ runs:
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
     - name: Install GitHub CLI
+      if: steps.cache-gh-cli.outputs.cache-hit != 'true'
       shell: bash
       run: |
         sudo apt update
