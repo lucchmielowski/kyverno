@@ -1,0 +1,64 @@
+name: 'Cherry Pick Action'
+description: 'Creates cherry-pick PRs from a merge commit'
+
+inputs:
+  github-token:
+    description: 'GitHub token for authentication'
+    required: true
+  source-pr:
+    description: 'Source PR number'
+    required: true
+  target-branches:
+    description: 'Target branches for cherry-pick (comma-separated)'
+    required: true
+  merge-commit:
+    description: 'Merge commit SHA'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    - name: Install GitHub CLI
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install gh -y
+
+    - name: Authenticate gh
+      shell: bash
+      run: gh auth setup-git
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Create cherry-pick PRs
+      shell: bash
+      run: |
+        IFS=',' read -ra BRANCHES <<< "${{ inputs.target-branches }}"
+        for target_branch in "${BRANCHES[@]}"; do
+          echo "🔄 Cherry-picking to $target_branch..."
+        
+          git fetch origin $target_branch
+          git checkout -b cherry-pick-${{ inputs.source-pr }}-${target_branch} origin/$target_branch
+        
+          if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
+            git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
+        
+            gh pr create \
+              --title "Cherry-pick #${{ inputs.source-pr }} to ${target_branch}" \
+              --body "Cherry-pick of #${{ inputs.source-pr }} to \`${target_branch}\`." \
+              --base ${target_branch} \
+              --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
+          else
+            echo "❌ Conflit lors du cherry-pick vers ${target_branch}"
+            git cherry-pick --abort
+            continue
+          fi
+        done
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
