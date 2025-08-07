@@ -29,3 +29,5 @@ jobs:
         with:
           labels: |
             require-cherry-pick
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
