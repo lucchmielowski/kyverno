@@ -80,19 +80,7 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
-            Hello, @${{ github.event.issue.user.login }} :robot: :wave:
-            
-            Code from this PR will be cherry picked inside the `${{steps.extract-branch.outputs.branch}}` branch(es) once merged.
-
-      - name: comment pr merged
-        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == true }}
-        uses: ben-z/actions-comment-on-issue@1.0.3
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          message: |
-            Hello, @${{ github.event.issue.user.login }} :robot: :wave:
-            
-            Cherry picking the merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` inside `${{steps.extract-branch.outputs.branch}}` right now.
+            Squashed commits from this PR will be cherry picked into the `${{steps.extract-branch.outputs.branch}}` branch(es) once merged.
 
       - name: Checkout repository
         if: fromJSON(steps.check-merged.outputs.result).merged == true
@@ -103,9 +91,22 @@ jobs:
       - name: Cherry Pick
         if: fromJSON(steps.check-merged.outputs.result).merged == true
         uses: ./.github/actions/cherry-pick
+        id: cherry-pick
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           source-pr: ${{ github.event.issue.number }}
           target-branches: ${{ steps.extract-branch.outputs.branch }}
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
+
+      - name: comment pr merged
+        if: ${{ steps.cherry-pick.outputs.git-logs != '' }}
+        uses: ben-z/actions-comment-on-issue@1.0.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          message: |            
+            Cherry picking the merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` into `${{steps.extract-branch.outputs.branch}}` failed with:
+            
+            ```
+            ${{ steps.cherry-pick.outputs.git-logs }}
+            ```
 

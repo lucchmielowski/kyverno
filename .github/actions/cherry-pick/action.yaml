@@ -13,6 +13,10 @@ inputs:
   merge-commit:
     description: 'Merge commit SHA'
     required: true
+outputs:
+  git-logs:
+    description: 'Git logs in case of an error'
+    value: ${{ steps.cherry-pick.outputs.git-logs }}
 runs:
   using: 'composite'
   steps:
@@ -34,26 +38,48 @@ runs:
     - name: Create cherry-pick PRs
       shell: bash
       run: |
-        IFS=',' read -ra BRANCHES <<< "${{ inputs.target-branches }}"
-        for target_branch in "${BRANCHES[@]}"; do
-          echo "🔄 Cherry-picking to $target_branch..."
+        {
+          IFS=',' read -ra BRANCHES <<< "${{ inputs.target-branches }}"
+          git_logs=""
         
-          git fetch origin $target_branch
-          git checkout -b cherry-pick-${{ inputs.source-pr }}-${target_branch} origin/$target_branch
+          for target_branch in "${BRANCHES[@]}"; do
+            echo "🔄 Cherry-picking to $target_branch..."
         
-          if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
-            git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            git fetch origin $target_branch
+            git checkout -b cherry-pick-${{ inputs.source-pr }}-${target_branch} origin/$target_branch
         
-            gh pr create \
-              --title "Cherry-pick #${{ inputs.source-pr }} to ${target_branch}" \
-              --body "Cherry-pick of #${{ inputs.source-pr }} to \`${target_branch}\`." \
-              --base ${target_branch} \
-              --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
-          else
-            echo "❌ Conflit lors du cherry-pick vers ${target_branch}"
-            git cherry-pick --abort
-            continue
-          fi
-        done
+            if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
+              git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
+        
+              gh pr create \
+                --title "Cherry-pick #${{ inputs.source-pr }} to ${target_branch}" \
+                --body "Cherry-pick of #${{ inputs.source-pr }} to \`${target_branch}\`." \
+                --base ${target_branch} \
+                --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            else
+              echo "❌ An error occured when cherry-picking to ${target_branch}"
+        
+              # 
+              git_logs+="==== Logs for ${target_branch} ====\n"
+              git_logs+="Last commits :\n"
+              git_logs+="$(git log --oneline -n 5)\n"
+              git_logs+="\Git State :\n"
+              git_logs+="$(git status)\n"
+              git_logs+="\nDiffs :\n"
+              git_logs+="$(git diff)\n"
+              git_logs+="================================\n\n"
+        
+              git cherry-pick --abort
+              continue
+            fi
+          done
+
+          # Escape special characters for  GH Actions
+          git_logs="${git_logs//'%'/'%25'}"
+          git_logs="${git_logs//$'\n'/'%0A'}"
+          git_logs="${git_logs//$'\r'/'%0D'}"
+        
+          echo "git-logs=${git_logs}" >> $GITHUB_OUTPUT
+        } 2>&1 | tee /tmp/cherry-pick.log
       env:
         GH_TOKEN: ${{ inputs.github-token }}
