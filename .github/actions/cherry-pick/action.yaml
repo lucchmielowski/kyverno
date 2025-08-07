@@ -16,15 +16,14 @@ inputs:
     required: true
 
 runs:
-  - name: Cache GitHub CLI
-    uses: actions/cache@v4
-    id: cache-gh-cli
-    with:
-      path: /usr/bin/gh
-      key: gh-cli-${{ runner.os }}
-
   using: 'composite'
   steps:
+    - name: Cache GitHub CLI
+      uses: actions/cache@v4
+      id: cache-gh-cli
+      with:
+        path: /usr/bin/gh
+        key: gh-cli-${{ runner.os }}
     - name: Configure Git
       shell: bash
       run: |
