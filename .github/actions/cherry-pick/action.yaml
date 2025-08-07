@@ -79,13 +79,3 @@ runs:
         echo "git-logs=${git_logs}" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-
-    - name: Verify outputs
-      shell: bash
-      run: cat $GITHUB_OUTPUT
-
-    - name: Debug Output
-      shell: bash
-      run: |
-        echo "${{ steps.cherry-pick.outputs.success }}"
-        echo "${{ steps.cherry-pick.outputs.git-logs }}"

@@ -36,24 +36,25 @@ jobs:
       pull-requests: write
       contents: write
     steps:
-      - name: Check for Command
-        id: command
-        uses: lucchmielowski/slash-command-action@use-new-matcher
-        continue-on-error: true
-        with:
-          command: cherry-pick
-          reaction: "true"
-          reaction-type: "eyes"
-          allow-edits: "false"
-          permission-level: write
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+    # TODO(lucchmielowski): Fix slash in command name issue and reactivate for finer-grained controls
+    # - name: Check for Command
+    #    id: command
+    #    uses: xt0rted/slash-command-action@v2
+    #   continue-on-error: true
+    #   with:
+    #     command: cherry-pick
+    #     reaction: "true"
+    #     reaction-type: "+1"
+    #     allow-edits: "false"
+    #     permission-level: write
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug Comment
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Event type: ${{ github.event.action }}"
-          echo "Is PR?: ${{ github.event.issue.pull_request != null }}"
-          echo "Command output: ${{ steps.command.outputs.command-name }}"
+      # NOTE: can be removed if slash-command-action is uncommented
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
 
       - name: Check if PR is merged
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -77,8 +78,8 @@ jobs:
         run: echo "branch=$(echo '${{ github.event.comment.body }}' | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: comment pr unmerged
-        if: ${{ steps.command.outputs.command-name != '' && fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
-        uses: ben-z/actions-comment-on-issue@1.0.3
+        if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
+        uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
@@ -104,7 +105,7 @@ jobs:
 
       - name: comment cherry-pick fail
         if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
-        uses: ben-z/actions-comment-on-issue@1.0.3
+        uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |            
