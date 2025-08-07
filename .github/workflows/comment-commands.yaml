@@ -98,8 +98,8 @@ jobs:
           target-branches: ${{ steps.extract-branch.outputs.branch }}
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
-      - name: comment pr merged
-        if: ${{ steps.cherry-pick.outputs.git-logs != '' }}
+      - name: comment cherry-pick fail
+        if: steps.cherry-pick.outputs.success == false
         uses: ben-z/actions-comment-on-issue@1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -109,4 +109,4 @@ jobs:
             ```
             ${{ steps.cherry-pick.outputs.git-logs }}
             ```
-
+            
