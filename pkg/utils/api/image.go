@@ -139,6 +139,7 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 		t = append(t, "*")
 		extractors = append(extractors, imageExtractor{Fields: t, Key: "name", Value: "image", Name: tag})
 	}
+	fmt.Println("extractors", extractors)
 	return extractors
 }
 

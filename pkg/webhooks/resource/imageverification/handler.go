@@ -145,6 +145,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			// add annotation patches first
 			patches = append(annotationPatches, patches...)
 		}
+		logger.V(2).Info("patches", patches)
 	}
 
 	go h.handleAudit(ctx, policyContext.NewResource(), request, nil, engineResponses...)

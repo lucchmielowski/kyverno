@@ -246,6 +246,8 @@ func (iv *ImageVerifier) Verify(
 			}
 		}
 
+		fmt.Println("ruleResp", ruleResp)
+
 		if ruleResp != nil {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
 				iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))

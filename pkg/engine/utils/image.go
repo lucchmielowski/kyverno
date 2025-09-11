@@ -69,6 +69,7 @@ func IsImageVerified(resource unstructured.Unstructured, image string, log logr.
 	if resource.Object == nil {
 		return engineapi.ImageVerificationFail, fmt.Errorf("nil resource")
 	}
+	log.V(2).Info("checking if image is verified", "image", image, "resource", resource.Object, "annotations", resource.GetAnnotations())
 	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
 		return engineapi.ImageVerificationFail, nil
 	} else if data, ok := annotations[kyverno.AnnotationImageVerify]; !ok {
