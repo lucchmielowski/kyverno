@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
+	sigs "github.com/sigstore/cosign/v2/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -60,7 +62,7 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) 
 	}
 
 	verifyOpts := buildVerifyOptions(opts)
-	trustedMaterial, err := getTrustedRoot(ctx)
+	trustedMaterial, err := getTrustedMaterial(ctx, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get trusted root: %v", opts.ImageRef)
 	}
@@ -73,8 +75,8 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) 
 	return results, nil
 }
 
-func verifyBundles(bundles []*Bundle, desc *v1.Descriptor, trustedRoot *root.TrustedRoot, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*VerificationResult, error) {
-	verifier, err := verify.NewSignedEntityVerifier(trustedRoot, verifierOpts...)
+func verifyBundles(bundles []*Bundle, desc *v1.Descriptor, trustedMaterial root.TrustedMaterial, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*VerificationResult, error) {
+	verifier, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +190,10 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
 
+	if opts.Key != "" {
+		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithKey()), nil
+	}
+
 	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
@@ -208,7 +214,7 @@ func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
 	return verifierOptions
 }
 
-func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
+func getTrustedMaterial(ctx context.Context, opts images.Options) (root.TrustedMaterial, error) {
 	tufClient, err := tuf.NewFromEnv(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("initializing tuf: %w", err)
@@ -222,7 +228,23 @@ func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
 		return nil, fmt.Errorf("error creating trusted root: %w", err)
 	}
 
-	return trustedRoot, nil
+	// If no key is provided, only the trusted root is needed (keyless/cert-based verification)
+	if opts.Key == "" {
+		return root.TrustedMaterialCollection{trustedRoot}, nil
+	}
+
+	// Support PEM, k8s URIs, etc for key-based verification
+	sv, err := sigs.PublicKeyFromKeyRef(ctx, opts.Key)
+	if err != nil {
+		return nil, fmt.Errorf("error getting public key from key ref: %w", err)
+	}
+
+	exp := root.NewExpiringKey(sv, time.Now(), time.Now().Add(5*time.Minute))
+	keyTM := root.NewTrustedPublicKeyMaterial(func(string) (root.TimeConstrainedVerifier, error) {
+		return exp, nil
+	})
+
+	return root.TrustedMaterialCollection{trustedRoot, keyTM}, nil
 }
 
 func decodeStatementsFromBundles(bundles []*VerificationResult) ([]map[string]interface{}, error) {
