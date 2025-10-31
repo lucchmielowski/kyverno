@@ -1,4 +1,4 @@
-package cosign
+vpackage cosign
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -202,6 +203,12 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 }
 
 func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
+	// For key-based verification, use WithNoObserverTimestamps exclusively
+	// per sigstore-go VerifierConfig validation rules.
+	if opts.Key != "" {
+		return []verify.VerifierOption{verify.WithoutAnyObserverTimestampsUnsafe()}
+	}
+
 	var verifierOptions []verify.VerifierOption
 	if !opts.IgnoreTlog {
 		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1))
@@ -233,10 +240,20 @@ func getTrustedMaterial(ctx context.Context, opts images.Options) (root.TrustedM
 		return root.TrustedMaterialCollection{trustedRoot}, nil
 	}
 
-	// Support PEM, k8s URIs, etc for key-based verification
-	sv, err := sigs.PublicKeyFromKeyRef(ctx, opts.Key)
-	if err != nil {
-		return nil, fmt.Errorf("error getting public key from key ref: %w", err)
+	// Support PEM content, k8s URIs, KMS, file paths, etc for key-based verification
+	var sv signature.Verifier
+	if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
+		v, err := decodePEM([]byte(opts.Key), signatureAlgorithmMap[opts.SignatureAlgorithm])
+		if err != nil {
+			return nil, fmt.Errorf("error decoding public key PEM: %w", err)
+		}
+		sv = v
+	} else {
+		v, err := sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithmMap[opts.SignatureAlgorithm])
+		if err != nil {
+			return nil, fmt.Errorf("error getting public key from key ref: %w", err)
+		}
+		sv = v
 	}
 
 	exp := root.NewExpiringKey(sv, time.Now(), time.Now().Add(5*time.Minute))
