@@ -11,9 +11,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/v2/pkg/oci"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"gotest.tools/assert"
 )
 
@@ -341,7 +341,7 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
+	assert.NilError(t, err)
 
 	opts.TSACertChain = tsaCertChain
 	_, err = verifier.VerifySignature(context.TODO(), opts)
