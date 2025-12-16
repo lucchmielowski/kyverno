@@ -4907,6 +4907,11 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          cosignNewBundleFormat:
+                            description: |-
+                              CosignNewBundleFormat allows the user to validate images against cosign V3 bundle.
+                              Defaults to false.
+                            type: boolean
                           cosignOCI11:
                             description: |-
                               CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
@@ -10059,6 +10064,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignNewBundleFormat:
+                                description: |-
+                                  CosignNewBundleFormat allows the user to validate images against cosign V3 bundle.
+                                  Defaults to false.
+                                type: boolean
                               cosignOCI11:
                                 description: |-
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
@@ -20071,6 +20081,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignNewBundleFormat:
+                                description: |-
+                                  CosignNewBundleFormat allows the user to validate images against cosign V3 bundle.
+                                  Defaults to false.
+                                type: boolean
                               cosignOCI11:
                                 description: |-
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.

@@ -101,6 +101,11 @@ type ImageVerification struct {
 	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty"`
 
+	// CosignNewBundleFormat allows the user to validate images against cosign V3 bundle.
+	// Defaults to false.
+	// +optional
+	CosignNewBundleFormat bool `json:"cosignNewBundleFormat,omitempty"`
+
 	// CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
 	// Defaults to false.
 	// +optional

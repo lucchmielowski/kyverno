@@ -75,6 +75,9 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 			if err != nil {
 				return nil, false, err
 			}
+			if cosignOpts.NewBundleFormat {
+				return client.VerifyImageAttestations(ctx, ref, cosignOpts)
+			}
 			return client.VerifyImageSignatures(ctx, ref, cosignOpts)
 		},
 	)
@@ -118,11 +121,12 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	cosignOpts := &cosign.CheckOpts{
+		NewBundleFormat:    true,
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: []remote.Option{remote.WithRemoteOptions(options...)},
 	}
 
-	if opts.FetchAttestations {
+	if opts.FetchAttestations || opts.CosignNewBundleFormat {
 		cosignOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 	} else {
 		cosignOpts.ClaimVerifier = cosign.SimpleClaimVerifier
@@ -245,7 +249,14 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.TSARootCertificates = roots
 	}
 
+	cosignOpts.TrustedMaterial, err = cosign.TrustedRoot()
+	cosignOpts.Identities = []cosign.Identity{{Issuer: opts.Issuer, IssuerRegExp: opts.IssuerRegExp, Subject: opts.Subject, SubjectRegExp: opts.SubjectRegExp}}
+	if err != nil {
+		return nil, err
+	}
+
 	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11
+	cosignOpts.NewBundleFormat = opts.CosignNewBundleFormat
 	return cosignOpts, nil
 }
 
