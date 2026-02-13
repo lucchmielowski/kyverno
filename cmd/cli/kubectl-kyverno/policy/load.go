@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/go-git/go-billy/v5"
 	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
@@ -69,6 +70,13 @@ var (
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
+)
+
+var (
+	// cachedLoader caches the resource loader to avoid recreating it for every policy file
+	cachedLoader     resourceloader.Loader
+	cachedLoaderOnce sync.Once
+	cachedLoaderErr  error
 )
 
 type LoaderError struct {
@@ -156,17 +164,25 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		return nil, err
 	}
 	results := &LoaderResults{}
-	crds, err := data.Crds()
-	if err != nil {
-		return nil, err
+
+	// Initialize the cached loader only once
+	cachedLoaderOnce.Do(func() {
+		crds, err := data.Crds()
+		if err != nil {
+			cachedLoaderErr = err
+			return
+		}
+		cachedLoader, cachedLoaderErr = resourceloader.New(openapiclient.NewComposite(
+			openapiclient.NewHardcodedBuiltins("1.32"),
+			openapiclient.NewLocalCRDFiles(crds),
+		))
+	})
+
+	if cachedLoaderErr != nil {
+		return nil, cachedLoaderErr
 	}
-	factory, err := resourceloader.New(openapiclient.NewComposite(
-		openapiclient.NewHardcodedBuiltins("1.32"),
-		openapiclient.NewLocalCRDFiles(crds),
-	))
-	if err != nil {
-		return nil, err
-	}
+
+	factory := cachedLoader
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {

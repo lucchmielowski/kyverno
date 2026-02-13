@@ -6,15 +6,56 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	// Enable profiling if DEBUG_PROFILE environment variable is set
+	if os.Getenv("DEBUG_PROFILE") != "" {
+		// Start CPU profiling
+		cpuProfile := "test_cpu.prof"
+		if f, err := os.Create(cpuProfile); err == nil {
+			pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
+		}
+
+		// Start goroutine tracking
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				goroutineProfile := fmt.Sprintf("test_goroutines_%d.prof", time.Now().Unix())
+				if f, err := os.Create(goroutineProfile); err == nil {
+					pprof.Lookup("goroutine").WriteTo(f, 0)
+					f.Close()
+					fmt.Fprintf(os.Stderr, "Goroutine profile written to %s\n", goroutineProfile)
+				}
+			}
+		}()
+
+		// Write goroutine profile on exit
+		defer func() {
+			finalGoroutineProfile := "test_goroutines_final.prof"
+			if f, err := os.Create(finalGoroutineProfile); err == nil {
+				pprof.Lookup("goroutine").WriteTo(f, 0)
+				f.Close()
+				fmt.Fprintf(os.Stderr, "Final goroutine profile written to %s\n", finalGoroutineProfile)
+			}
+		}()
+	}
+
+	code := m.Run()
+	os.Exit(code)
+}
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
