@@ -595,7 +595,10 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		// Use a context with timeout to prevent hangs in tests
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
+		cancel() // Cancel immediately after use to free resources
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -624,7 +627,10 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		// Use a context with timeout to prevent hangs in tests
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		result, err := eval.Evaluate(ctx, ivpols, json.Object, nil, nil, nil)
+		cancel() // Cancel immediately after use to free resources
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -697,7 +703,10 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				return nil, fmt.Errorf("unsupported deleting policy type %T", dpol.Policy)
 			}
 			policyName := dpol.Policy.GetName()
-			resp, err := engine.Handle(context.TODO(), dpol, *resource)
+			// Use a context with timeout to prevent hangs in tests
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			resp, err := engine.Handle(ctx, dpol, *resource)
+			cancel() // Cancel immediately after use to free resources
 			if err != nil {
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
