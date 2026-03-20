@@ -70,11 +70,11 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -287,8 +287,34 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	vapsRegistered, _ := admissionpolicy.IsValidatingAdmissionPolicyRegistered(kubeClient)
-	mapsRegistered, _ := admissionpolicy.IsMutatingAdmissionPolicyRegistered(kubeClient)
-	if vapsRegistered || mapsRegistered {
+
+	var mapPolicyInformer cache.SharedInformer
+	var mapBindingInformer cache.SharedInformer
+	var mapWriter admissionpolicygenerator.MutatingAdmissionPolicyWriter
+	mapGV, mapFound, mapDiscoverErr := admissionpolicy.DiscoverMutatingAdmissionPolicyVersion(kubeClient.Discovery())
+	if mapDiscoverErr != nil {
+		logging.GlobalLogger().Error(mapDiscoverErr, "failed to discover MutatingAdmissionPolicy API")
+	}
+	if mapFound {
+		logging.GlobalLogger().V(2).Info("MutatingAdmissionPolicy API", "groupVersion", mapGV.String())
+		w, wErr := admissionpolicygenerator.NewMutatingAdmissionPolicyWriter(mapGV)
+		if wErr != nil {
+			logging.GlobalLogger().Error(wErr, "MutatingAdmissionPolicy generation disabled for this API version")
+		} else {
+			mapWriter = w
+			switch mapGV.Version {
+			// TODO: Add v1 informer/writer and prepend v1 to admissionpolicy.SupportedMutatingAdmissionPolicyGroupVersions()
+			case "v1beta1":
+				mapPolicyInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies().Informer()
+				mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings().Informer()
+			case "v1alpha1":
+				mapPolicyInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies().Informer()
+				mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings().Informer()
+			}
+		}
+	}
+
+	if vapsRegistered || mapWriter != nil {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
@@ -296,13 +322,6 @@ func createrLeaderControllers(
 		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
-		}
-
-		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
-		if mapsRegistered {
-			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
 		}
 
 		admissionpolicyController := admissionpolicygenerator.NewController(
@@ -318,8 +337,9 @@ func createrLeaderControllers(
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
-			mapInformer,
+			mapPolicyInformer,
 			mapBindingInformer,
+			mapWriter,
 			eventGenerator,
 			checker,
 		)

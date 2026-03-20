@@ -25,10 +25,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -59,8 +58,8 @@ type controller struct {
 	celpolexLister   policiesv1beta1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	mapbindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
+
+	mapWriter MutatingAdmissionPolicyWriter
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -82,8 +81,9 @@ func NewController(
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	mapbindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
+	mapPolicyInformer cache.SharedInformer,
+	mapBindingInformer cache.SharedInformer,
+	mapWriter MutatingAdmissionPolicyWriter,
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {
@@ -105,6 +105,7 @@ func NewController(
 		queue:           queue,
 		eventGen:        eventGen,
 		checker:         checker,
+		mapWriter:       mapWriter,
 	}
 
 	// Set up an event handler for when Kyverno policies change
@@ -153,21 +154,7 @@ func NewController(
 		}
 	}
 
-	// Set up an event handler for when MutatingAdmissionPolicies change
-	if mapInformer != nil {
-		c.mapLister = mapInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapInformer.Informer(), c.addMAP, c.updateMAP, c.deleteMAP); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
-	}
-
-	// Set up an event handler for when MutatingAdmissionPolicyBindings change
-	if mapbindingInformer != nil {
-		c.mapbindingLister = mapbindingInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapbindingInformer.Informer(), c.addMAPbinding, c.updateMAPbinding, c.deleteMAPbinding); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
-	}
+	registerMAPInformerHandlers(c, mapPolicyInformer, mapBindingInformer)
 
 	return c
 }

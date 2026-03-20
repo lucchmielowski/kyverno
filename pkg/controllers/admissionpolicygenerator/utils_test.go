@@ -18,14 +18,4 @@ func Test_NilListers(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, vapbinding)
 	assert.Contains(t, err.Error(), "ValidatingAdmissionPolicyBinding lister is nil")
-
-	mapol, err := c.getMutatingAdmissionPolicy("test")
-	assert.Error(t, err)
-	assert.Nil(t, mapol)
-	assert.Contains(t, err.Error(), "MutatingAdmissionPolicy lister is nil")
-
-	mapbinding, err := c.getMutatingAdmissionPolicyBinding("test")
-	assert.Error(t, err)
-	assert.Nil(t, mapbinding)
-	assert.Contains(t, err.Error(), "MutatingAdmissionPolicyBinding lister is nil")
 }

@@ -35,41 +35,36 @@ func HasValidatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
 }
 
 // HasMutatingAdmissionPolicyPermission check if the admission controller has the required permissions to generate
-// Kubernetes MutatingAdmissionPolicy. It checks for v1beta1 first (supported in K8s 1.32+),
-// and falls back to v1alpha1 for earlier versions.
+// Kubernetes MutatingAdmissionPolicy. It checks API versions in the same order as DiscoverMutatingAdmissionPolicyVersion.
 func HasMutatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "mutatingadmissionpolicies"}
-	if hasPermissions(gvr, s) {
-		return true
+	for _, gv := range SupportedMutatingAdmissionPolicyGroupVersions() {
+		gvr := schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: "mutatingadmissionpolicies"}
+		if hasPermissions(gvr, s) {
+			return true
+		}
 	}
-	gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "mutatingadmissionpolicies"}
-	return hasPermissions(gvr, s)
+	return false
 }
 
 // HasMutatingAdmissionPolicyBindingPermission check if the admission controller has the required permissions to generate
-// Kubernetes MutatingAdmissionPolicyBinding. It checks for v1beta1 first (supported in K8s 1.32+),
-// and falls back to v1alpha1 for earlier versions.
+// Kubernetes MutatingAdmissionPolicyBinding. It checks API versions in the same order as DiscoverMutatingAdmissionPolicyVersion.
 func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "mutatingadmissionpolicybindings"}
-	if hasPermissions(gvr, s) {
-		return true
+	for _, gv := range SupportedMutatingAdmissionPolicyGroupVersions() {
+		gvr := schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: "mutatingadmissionpolicybindings"}
+		if hasPermissions(gvr, s) {
+			return true
+		}
 	}
-	gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "mutatingadmissionpolicybindings"}
-	return hasPermissions(gvr, s)
+	return false
 }
 
 // IsMutatingAdmissionPolicyRegistered checks if MutatingAdmissionPolicies are registered in the API Server.
-// It checks for v1beta1 first, then falls back to v1alpha1.
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
-	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err == nil {
-		return true, nil
-	}
-	groupVersion = schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+	_, found, err := DiscoverMutatingAdmissionPolicyVersion(kubeClient.Discovery())
+	if err != nil {
 		return false, err
 	}
-	return true, nil
+	return found, nil
 }
 
 // IsValidatingAdmissionPolicyRegistered checks if ValidatingAdmissionPolicies are registered in the API Server.

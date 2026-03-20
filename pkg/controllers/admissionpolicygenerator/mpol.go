@@ -3,7 +3,6 @@ package admissionpolicygenerator
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -22,9 +21,7 @@ func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) deleteMP(obj policiesv1beta1.MutatingPolicyLike) {
-	mpol := kubeutils.GetObjectWithTombstone(obj).(policiesv1beta1.MutatingPolicyLike)
-
-	logger.V(2).Info("mutating policy deleted", "uid", mpol.GetUID(), "kind", mpol.GetKind(), "name", mpol.GetName())
+	logger.V(2).Info("mutating policy deleted", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueMP(obj)
 }
 

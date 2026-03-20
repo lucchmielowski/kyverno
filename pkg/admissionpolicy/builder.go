@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	slicesutils "github.com/kyverno/kyverno/pkg/utils/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -321,6 +323,98 @@ func BuildMutatingAdmissionPolicyBinding(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
+// BuildMutatingAdmissionPolicyBeta builds admissionregistration.k8s.io/v1beta1 MutatingAdmissionPolicy from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyBeta(
+	mapol *admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := make([]admissionregistrationv1beta1.MatchCondition, 0)
+	for _, exception := range exceptions {
+		for _, matchCondition := range exception.Spec.MatchConditions {
+			expression := "!(" + matchCondition.Expression + ")"
+			matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition{
+				Name:       matchCondition.Name,
+				Expression: expression,
+			})
+		}
+	}
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition(mc))
+	}
+	mapol.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1beta1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+
+	var fpt *admissionregistrationv1beta1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := admissionregistrationv1beta1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		fpt = &conv
+	}
+
+	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
+		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
+				return admissionregistrationv1beta1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: rule.RuleWithOperations,
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations:       mutatingPolicyMutationsAlphaToBeta(mp.Spec.Mutations),
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1beta1.Variable {
+			return admissionregistrationv1beta1.Variable(v)
+		}),
+		FailurePolicy:      fpt,
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
+}
+
+// BuildMutatingAdmissionPolicyBindingBeta builds admissionregistration.k8s.io/v1beta1 MutatingAdmissionPolicyBinding from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyBindingBeta(
+	mapbinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1beta1.MutatingPolicy,
+) {
+	mapbinding.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1beta1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+	mapbinding.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
+func mutatingPolicyMutationsAlphaToBeta(in []admissionregistrationv1alpha1.Mutation) []admissionregistrationv1beta1.Mutation {
+	if len(in) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		return nil
+	}
+	var out []admissionregistrationv1beta1.Mutation
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func translateResourceFilters(discoveryClient dclient.IDiscovery,

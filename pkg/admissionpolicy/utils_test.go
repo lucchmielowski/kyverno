@@ -16,8 +16,10 @@ import (
 )
 
 const (
+	mutatingPoliciesV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicies"
 	mutatingPoliciesBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicies"
 	mutatingPoliciesAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicies"
+	mutatingBindingsV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicybindings"
 	mutatingBindingsBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicybindings"
 	mutatingBindingsAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicybindings"
 )
@@ -133,6 +135,15 @@ func TestHasMutatingAdmissionPolicyPermission(t *testing.T) {
 		expected bool
 	}{
 		{
+			name: "v1 allowed only ignored until Kyverno supports MAP v1",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingPoliciesV1: true,
+				},
+			},
+			expected: false,
+		},
+		{
 			name: "v1beta1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
@@ -176,6 +187,15 @@ func TestHasMutatingAdmissionPolicyBindingPermission(t *testing.T) {
 		auth     *mockAuthChecker
 		expected bool
 	}{
+		{
+			name: "v1 allowed only ignored until Kyverno supports MAP v1",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingBindingsV1: true,
+				},
+			},
+			expected: false,
+		},
 		{
 			name: "v1beta1 allowed",
 			auth: &mockAuthChecker{
@@ -240,6 +260,24 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 				},
 			},
 			expect: true,
+		},
+		{
+			name: "v1 only with MAP not detected until Kyverno supports MAP v1",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
+				},
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
+					APIResources: []metav1.APIResource{},
+				},
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+				},
+			},
+			expect: false,
 		},
 		{
 			name:      "neither present",
